@@ -8,8 +8,20 @@ public class Player : MonoBehaviour
     public float jumpForce = 5f;
     public float horizontalInput;
     private bool isGrounded;
-
     private bool jumpPressed = false;
+    public GameObject leash;
+    public Transform launchPoint;
+    public float launchSpeed = 15f;
+
+    public LineRenderer lr;
+    public int linePoints = 30;
+    public float timeBetweenPoints = 0.05f;
+
+    public bool isLeashOut = false;
+
+    // Vector2 
+
+
     void Start()
     {
 
@@ -17,26 +29,15 @@ public class Player : MonoBehaviour
     }
     void Update()
     {
-        horizontalInput = 0f;
-
-        if (Keyboard.current.dKey.isPressed)
-        {
-            horizontalInput = 1f;
-        }else if (Keyboard.current.aKey.isPressed)
-        {
-            horizontalInput = -1f;
-        }
-
+        PlayerMovement();
         
-        if(Keyboard.current.spaceKey.wasPressedThisFrame && isGrounded)
-        {
-            jumpPressed = true;
-        }
+        Throw();
+        
     }
+
+
     void FixedUpdate()
     {
-        
-
         // horizontal movement
         rb.linearVelocity = new Vector2(
             horizontalInput * moveSpeed, 
@@ -70,5 +71,69 @@ public class Player : MonoBehaviour
         }
     }
 
-    
+    private void PlayerMovement()
+    {
+        horizontalInput = 0f;
+
+        if (Keyboard.current.dKey.isPressed)
+        {
+            horizontalInput = 1f;
+        }else if (Keyboard.current.aKey.isPressed)
+        {
+            horizontalInput = -1f;
+        }
+
+        if(Keyboard.current.spaceKey.wasPressedThisFrame && isGrounded)
+        {
+            jumpPressed = true;
+        }
+    }
+
+    private void Throw()
+    {   
+        
+        if (Mouse.current.leftButton.wasPressedThisFrame && !isLeashOut)
+        {
+            Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
+
+            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(mouseScreenPos);
+
+            mouseWorldPos.z = 0f;
+
+            Vector3 direction = (mouseWorldPos - transform.position).normalized;
+            
+            GameObject _leash = Instantiate(leash, launchPoint.position, launchPoint.rotation);
+
+            Physics2D.IgnoreCollision( _leash.GetComponent<Collider2D>(), GetComponent<Collider2D>());
+
+            Vector2 leashVel = launchSpeed * direction;
+ 
+            _leash.GetComponent<Rigidbody2D>().linearVelocity = leashVel;
+
+            isLeashOut = true;
+            
+        } else if (Mouse.current.leftButton.wasPressedThisFrame && isLeashOut){
+            GameObject currentLeash = GameObject.FindGameObjectWithTag("Leash");
+            Destroy(currentLeash);
+
+            Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
+
+            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(mouseScreenPos);
+
+            mouseWorldPos.z = 0f;
+
+            Vector3 direction = (mouseWorldPos - transform.position).normalized;
+            
+            GameObject _leash = Instantiate(leash, launchPoint.position, launchPoint.rotation);
+
+            Physics2D.IgnoreCollision( _leash.GetComponent<Collider2D>(), GetComponent<Collider2D>());
+
+            Vector2 leashVel = launchSpeed * direction;
+ 
+            _leash.GetComponent<Rigidbody2D>().linearVelocity = leashVel;
+
+            isLeashOut = true;
+        }
+    }
+
 }
