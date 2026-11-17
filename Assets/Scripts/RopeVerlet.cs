@@ -23,8 +23,13 @@ public class RopeVerlet : MonoBehaviour
     [SerializeField] private float pullStrength = 20f;
     [SerializeField] private float damping = 2f;
 
-    private Transform attachedBall;
-    private Rigidbody2D ballRb;
+    [Header("Rope Collision")]
+    [SerializeField] private LayerMask collisionMask;
+    [SerializeField] private float collisionRadius = 0.05f;
+    [SerializeField] private float collisionSkin = 0.01f;
+
+    private Transform attachedHook;
+    private Rigidbody2D hookRb;
 
     private int minSegments = 3;
     private int maxSegments = 100;
@@ -62,23 +67,23 @@ public class RopeVerlet : MonoBehaviour
         ApplyRopePhysics();
     }
 
-    // Attach the rope to the thrown ball and player
-    public void AttachToBall(Transform ball, Transform player)
+    // Attach the rope to the thrown hook and player
+    public void AttachToHook(Transform Hook, Transform player)
     {
-        attachedBall = ball;
+        attachedHook = Hook;
         playerAnchor = player;
 
-        ballRb = attachedBall.GetComponent<Rigidbody2D>();
+        hookRb = attachedHook.GetComponent<Rigidbody2D>();
 
-        if (ballRb == null)
+        if (hookRb == null)
         {
-            Debug.LogError("Thrown ball needs a Rigidbody2D!");
+            Debug.LogError("Thrown Hook needs a Rigidbody2D!");
             return;
         }
 
-        // Initialize rope between player and ball
+        // Initialize rope between player and hook
         Vector2 start = GetPlayerPosition();
-        Vector2 end = attachedBall.position;
+        Vector2 end = attachedHook.position;
         
         // For each ropeSegment get the position of where a segement should start and end to make them all even
         // Lerp stands for Linear Interpolation. In Unity, it lets you calculate a point between two values.
@@ -95,10 +100,10 @@ public class RopeVerlet : MonoBehaviour
         }
     }
 
-    public void DetachFromBall()
+    public void DetachFromHook()
     {
-        attachedBall = null;
-        ballRb = null;
+        attachedHook = null;
+        hookRb = null;
     }
 
     private Vector2 GetPlayerPosition()
@@ -111,11 +116,11 @@ public class RopeVerlet : MonoBehaviour
     // Apply physical force when the rope is stretched
     private void ApplyRopePhysics()
     {
-        if (attachedBall == null || ballRb == null)
+        if (attachedHook == null || hookRb == null)
             return;
 
         Vector2 start = GetPlayerPosition();
-        Vector2 end = attachedBall.position;
+        Vector2 end = attachedHook.position;
 
         Vector2 direction = end - start;
         float distance = direction.magnitude;
@@ -130,9 +135,9 @@ public class RopeVerlet : MonoBehaviour
 
             float stretch = distance - maxRopeLength;
 
-            // Calculate ball velocity in the rope's direction
+            // Calculate hook velocity in the rope's direction
             float velocityAlongRope = Vector2.Dot(
-                ballRb.linearVelocity,
+                hookRb.linearVelocity,
                 pullDirection
             );
 
@@ -140,8 +145,8 @@ public class RopeVerlet : MonoBehaviour
             float force = (stretch * pullStrength) +
                           (velocityAlongRope * damping);
 
-            // Pull ball toward player
-            ballRb.AddForce(-pullDirection * force);
+            // Pull hook toward player
+            hookRb.AddForce(-pullDirection * force);
         }
     }
 
@@ -192,7 +197,7 @@ public class RopeVerlet : MonoBehaviour
         if (ropeSegments.Count <= minSegments)
             return;
 
-        // Never remove the ball's anchor
+        // Never remove the hook's anchor
         ropeSegments.RemoveAt(ropeSegments.Count - 2);
 
         segmentLength = ropeSegments.Count;
@@ -206,7 +211,7 @@ public class RopeVerlet : MonoBehaviour
         // Verlet integration
         for (int i = 1; i < ropeSegments.Count; i++)
         {
-            if (attachedBall != null && i == lastIndex)
+            if (attachedHook != null && i == lastIndex)
                 continue;
 
             RopeSegment segment = ropeSegments[i];
@@ -228,19 +233,20 @@ public class RopeVerlet : MonoBehaviour
         first.oldPos = first.currPos;
         ropeSegments[0] = first;
 
-        // Update ball anchor
-        if (attachedBall != null)
+        // Update Hook anchor
+        if (attachedHook != null)
         {
             RopeSegment last = ropeSegments[lastIndex];
-            last.currPos = attachedBall.position;
+            last.currPos = attachedHook.position;
             last.oldPos = last.currPos;
             ropeSegments[lastIndex] = last;
         }
 
-        // Apply distance constraints
+        // Apply distance constraints and collision detection
         for (int i = 0; i < constraintIterations; i++)
         {
             ApplyConstraint();
+            ResolveCollisions();
         }
     }
 
@@ -265,7 +271,7 @@ public class RopeVerlet : MonoBehaviour
 
             bool firstIsAnchored = i == 0;
             bool secondIsAnchored =
-                attachedBall != null && i + 1 == lastIndex;
+                attachedHook != null && i + 1 == lastIndex;
 
             if (firstIsAnchored)
             {
@@ -300,6 +306,71 @@ public class RopeVerlet : MonoBehaviour
         lr.positionCount = positions.Length;
         lr.SetPositions(positions);
     }
+
+    private void ResolveCollisions()
+{
+    for (int i = 1; i < ropeSegments.Count; i++)
+    {
+        // Don't move the hook anchor
+        if (attachedHook != null && i == ropeSegments.Count - 1)
+            continue;
+
+        RopeSegment segment = ropeSegments[i];
+
+        Collider2D hit = Physics2D.OverlapCircle(
+            segment.currPos,
+            collisionRadius,
+            collisionMask
+        );
+
+        if (hit != null)
+        {
+            // Find the closest point on the collider
+            Vector2 closestPoint = hit.ClosestPoint(segment.currPos);
+
+            Vector2 direction = segment.currPos - closestPoint;
+
+            // Calculate the direction to push the segment out
+            if (direction.sqrMagnitude < 0.0001f)
+            {
+                Vector2 fallbackDirection =
+                    (Vector2)hit.bounds.center - segment.currPos;
+
+                direction = -fallbackDirection.normalized;
+
+                if (direction.sqrMagnitude < 0.0001f)
+                    direction = Vector2.up;
+            }
+            else
+            {
+                direction.Normalize();
+            }
+
+            // Move the segment outside the collider
+            Vector2 surfacePoint = closestPoint;
+
+            segment.currPos = surfacePoint +
+                direction * (collisionRadius + collisionSkin);
+
+            // Prevent velocity from pushing the segment back into the object
+            Vector2 velocity = segment.currPos - segment.oldPos;
+
+            float velocityIntoSurface = Vector2.Dot(
+                velocity,
+                -direction
+            );
+
+            if (velocityIntoSurface > 0)
+            {
+                velocity -= -direction * velocityIntoSurface;
+            }
+
+            segment.oldPos = segment.currPos - velocity;
+
+            ropeSegments[i] = segment;
+        }
+    }
+}
 
     public struct RopeSegment
     {

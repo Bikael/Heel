@@ -98,7 +98,7 @@ public class Player : MonoBehaviour
         // Destroy existing leash if one is already out
         if (isLeashOut)
         {
-            GameObject currentLeash = GameObject.FindGameObjectWithTag("Leash");
+            GameObject currentLeash = GameObject.FindGameObjectWithTag("Hook");
 
             if (currentLeash != null)
                 Destroy(currentLeash);
@@ -132,8 +132,8 @@ public class Player : MonoBehaviour
         Rigidbody2D leashRb = _leash.GetComponent<Rigidbody2D>();
         leashRb.linearVelocity = launchSpeed * direction;
 
-        // Attach rope to ball and player
-        rope.AttachToBall(_leash.transform, launchPoint);
+        // Attach rope to hook and player
+        rope.AttachToHook(_leash.transform, launchPoint);
 
         isLeashOut = true;
     }

@@ -264,6 +264,7 @@ MonoBehaviour:
   linePoints: 30
   timeBetweenPoints: 0.05
   isLeashOut: 0
+  rope: {fileID: 779902361}
 --- !u!61 &425120929
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -581,6 +582,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8b1385ee55a0e2343a04e431e30c02ae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RopeVerlet
+  ropeSegLen: 0.25
+  segmentLength: 35
+  lineWidth: 0.1
+  forceGravity: {x: 0, y: -20}
+  constraintIterations: 50
+  playerAnchor: {fileID: 425120926}
+  pullStrength: 20
+  damping: 2
+  collisionMask:
+    serializedVersion: 2
+    m_Bits: 64
+  collisionRadius: 0.05
+  collisionSkin: 0.01
 --- !u!120 &779902362
 LineRenderer:
   serializedVersion: 3
@@ -717,7 +731,7 @@ GameObject:
   - component: {fileID: 1546196347}
   - component: {fileID: 1546196346}
   - component: {fileID: 1546196348}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Ground
   m_TagString: Ground
   m_Icon: {fileID: 0}
