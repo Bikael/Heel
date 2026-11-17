@@ -1,3 +1,4 @@
+
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -7,8 +8,10 @@ public class Player : MonoBehaviour
     public float moveSpeed = 5f;
     public float jumpForce = 5f;
     public float horizontalInput;
+
     private bool isGrounded;
     private bool jumpPressed = false;
+
     public GameObject leash;
     public Transform launchPoint;
     public float launchSpeed = 15f;
@@ -19,39 +22,36 @@ public class Player : MonoBehaviour
 
     public bool isLeashOut = false;
 
-    // Vector2 
-
+    public RopeVerlet rope;
 
     void Start()
     {
-
         rb = GetComponent<Rigidbody2D>();
     }
+
     void Update()
     {
         PlayerMovement();
-        
         Throw();
-        
     }
-
 
     void FixedUpdate()
     {
-        // horizontal movement
+        // Horizontal movement
         rb.linearVelocity = new Vector2(
-            horizontalInput * moveSpeed, 
+            horizontalInput * moveSpeed,
             rb.linearVelocity.y
         );
 
-        // jump logic
+        // Jump logic
         if (jumpPressed)
         {
             rb.linearVelocity = new Vector2(
-            rb.linearVelocityX,
-            jumpForce
-        );
+                rb.linearVelocityX,
+                jumpForce
+            );
         }
+
         jumpPressed = false;
     }
 
@@ -78,62 +78,63 @@ public class Player : MonoBehaviour
         if (Keyboard.current.dKey.isPressed)
         {
             horizontalInput = 1f;
-        }else if (Keyboard.current.aKey.isPressed)
+        }
+        else if (Keyboard.current.aKey.isPressed)
         {
             horizontalInput = -1f;
         }
 
-        if(Keyboard.current.spaceKey.wasPressedThisFrame && isGrounded)
+        if (Keyboard.current.spaceKey.wasPressedThisFrame && isGrounded)
         {
             jumpPressed = true;
         }
     }
 
     private void Throw()
-    {   
-        
-        if (Mouse.current.leftButton.wasPressedThisFrame && !isLeashOut)
+    {
+        if (!Mouse.current.leftButton.wasPressedThisFrame)
+            return;
+
+        // Destroy existing leash if one is already out
+        if (isLeashOut)
         {
-            Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
-
-            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(mouseScreenPos);
-
-            mouseWorldPos.z = 0f;
-
-            Vector3 direction = (mouseWorldPos - transform.position).normalized;
-            
-            GameObject _leash = Instantiate(leash, launchPoint.position, launchPoint.rotation);
-
-            Physics2D.IgnoreCollision( _leash.GetComponent<Collider2D>(), GetComponent<Collider2D>());
-
-            Vector2 leashVel = launchSpeed * direction;
- 
-            _leash.GetComponent<Rigidbody2D>().linearVelocity = leashVel;
-
-            isLeashOut = true;
-            
-        } else if (Mouse.current.leftButton.wasPressedThisFrame && isLeashOut){
             GameObject currentLeash = GameObject.FindGameObjectWithTag("Leash");
-            Destroy(currentLeash);
 
-            Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
+            if (currentLeash != null)
+                Destroy(currentLeash);
 
-            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(mouseScreenPos);
+            isLeashOut = false;
 
-            mouseWorldPos.z = 0f;
-
-            Vector3 direction = (mouseWorldPos - transform.position).normalized;
-            
-            GameObject _leash = Instantiate(leash, launchPoint.position, launchPoint.rotation);
-
-            Physics2D.IgnoreCollision( _leash.GetComponent<Collider2D>(), GetComponent<Collider2D>());
-
-            Vector2 leashVel = launchSpeed * direction;
- 
-            _leash.GetComponent<Rigidbody2D>().linearVelocity = leashVel;
-
-            isLeashOut = true;
+            return;
         }
-    }
 
+        Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
+
+        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(mouseScreenPos);
+        mouseWorldPos.z = 0f;
+
+        Vector3 direction = (mouseWorldPos - launchPoint.position).normalized;
+
+        // Instantiate leash
+        GameObject _leash = Instantiate(
+            leash,
+            launchPoint.position,
+            launchPoint.rotation
+        );
+
+        // Ignore collision with player
+        Physics2D.IgnoreCollision(
+            _leash.GetComponent<Collider2D>(),
+            GetComponent<Collider2D>()
+        );
+
+        // Apply throwing velocity
+        Rigidbody2D leashRb = _leash.GetComponent<Rigidbody2D>();
+        leashRb.linearVelocity = launchSpeed * direction;
+
+        // Attach rope to ball and player
+        rope.AttachToBall(_leash.transform, launchPoint);
+
+        isLeashOut = true;
+    }
 }
