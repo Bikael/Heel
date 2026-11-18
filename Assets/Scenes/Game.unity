@@ -259,10 +259,11 @@ MonoBehaviour:
   horizontalInput: 0
   hook: {fileID: 5682525895598304632, guid: bb2748680e6360f4c967dfbe526fa431, type: 3}
   launchPoint: {fileID: 425120926}
-  launchSpeed: 10
+  launchSpeed: 15
   leash: {fileID: 7196457335603339491, guid: 586176edfff275542aaa4b68ace02f08, type: 3}
   rope: {fileID: 5036172049319084615, guid: 586176edfff275542aaa4b68ace02f08, type: 3}
   isLeashOut: 0
+  activeHook: {fileID: 0}
 --- !u!61 &425120929
 BoxCollider2D:
   m_ObjectHideFlags: 0

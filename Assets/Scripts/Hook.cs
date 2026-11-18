@@ -5,7 +5,7 @@ public class Hook : MonoBehaviour
     public RopeVerlet rope;
 
     public bool touchedGround = false;
-
+    public bool HasTouchedGround => touchedGround;
     private Rigidbody2D rb;
 
     private void Start()

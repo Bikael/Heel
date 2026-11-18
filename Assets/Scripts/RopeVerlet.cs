@@ -36,58 +36,57 @@ public class RopeVerlet : MonoBehaviour
 
     private bool ropeActive = false;
 
+    public bool HasMinimumSegments => ropeSegments.Count <= minSegments;
+
     private void Awake()
-{
-    lr = GetComponent<LineRenderer>();
-
-    lr.enabled = true;
-    lr.useWorldSpace = true;
-
-    lr.startWidth = lineWidth;
-    lr.endWidth = lineWidth;
-
-    lr.startColor = Color.white;
-    lr.endColor = Color.white;
-
-    lr.positionCount = 0;
-
-    lr.sortingOrder = 10;
-
-    if (lr.sharedMaterial == null)
     {
-        lr.material = new Material(Shader.Find("Sprites/Default"));
-    }
-}
+        lr = GetComponent<LineRenderer>();
 
-    // Create a new rope at the player's position
+        lr.enabled = true;
+        lr.useWorldSpace = true;
+
+        lr.startWidth = lineWidth;
+        lr.endWidth = lineWidth;
+
+        lr.startColor = Color.white;
+        lr.endColor = Color.white;
+
+        lr.positionCount = 0;
+        lr.sortingOrder = 10;
+
+        if (lr.sharedMaterial == null)
+        {
+            lr.material = new Material(Shader.Find("Sprites/Default"));
+        }
+    }
+
     public void CreateLeash(Transform player)
-{
-    Debug.Log("Creating rope!");
-
-    if (player == null)
     {
-        Debug.LogError("Player anchor is missing!");
-        return;
+        Debug.Log("Creating rope!");
+
+        if (player == null)
+        {
+            Debug.LogError("Player anchor is missing!");
+            return;
+        }
+
+        DestroyLeash();
+
+        playerAnchor = player;
+        ropeActive = true;
+
+        Vector2 startPosition = GetPlayerPosition();
+
+        for (int i = 0; i < segmentLength; i++)
+        {
+            ropeSegments.Add(new RopeSegment(startPosition));
+        }
+
+        lr.positionCount = ropeSegments.Count;
+
+        Debug.Log("Rope segments created: " + ropeSegments.Count);
     }
 
-    DestroyLeash();
-
-    playerAnchor = player;
-    ropeActive = true;
-
-    Vector2 startPosition = GetPlayerPosition();
-
-    for (int i = 0; i < segmentLength; i++)
-    {
-        ropeSegments.Add(new RopeSegment(startPosition));
-    }
-
-    lr.positionCount = ropeSegments.Count;
-
-    Debug.Log("Rope segments created: " + ropeSegments.Count);
-}
-
-    // Destroy the current rope
     public void DestroyLeash()
     {
         ropeActive = false;
@@ -121,7 +120,6 @@ public class RopeVerlet : MonoBehaviour
         ApplyRopePhysics();
     }
 
-    // Attach the rope between the player and the thrown hook
     public void AttachToHook(Transform hook, Transform player)
     {
         if (!ropeActive || ropeSegments.Count < 2)
@@ -148,7 +146,6 @@ public class RopeVerlet : MonoBehaviour
             return;
         }
 
-        // Initialize rope between player and hook
         Vector2 start = GetPlayerPosition();
         Vector2 end = attachedHook.position;
 
@@ -179,7 +176,6 @@ public class RopeVerlet : MonoBehaviour
             : transform.position;
     }
 
-    // Apply physical force when the rope is stretched
     private void ApplyRopePhysics()
     {
         if (attachedHook == null || hookRb == null)
@@ -193,7 +189,6 @@ public class RopeVerlet : MonoBehaviour
 
         float maxRopeLength = ropeSegLen * (ropeSegments.Count - 1);
 
-        // Only pull when rope is fully extended
         if (distance > maxRopeLength)
         {
             Vector2 pullDirection = direction.normalized;
@@ -212,7 +207,6 @@ public class RopeVerlet : MonoBehaviour
         }
     }
 
-    // Handle mouse wheel input
     private void HandleScrollWheel()
     {
         if (Mouse.current == null)
@@ -258,31 +252,29 @@ public class RopeVerlet : MonoBehaviour
         lr.positionCount = segmentLength;
     }
 
-    private void RemoveRopeSegment()
+    public void RemoveRopeSegment()
     {
         if (!ropeActive || ropeSegments.Count <= minSegments)
             return;
 
-        // Never remove the hook anchor
+        // Preserve player and hook anchor segments
         ropeSegments.RemoveAt(ropeSegments.Count - 2);
 
         segmentLength = ropeSegments.Count;
         lr.positionCount = segmentLength;
+
+        DrawRope();
     }
 
-    // Verlet physics simulation
     private void Simulate()
     {
-        // Prevent out-of-range errors
         if (ropeSegments.Count < 2)
             return;
 
         int lastIndex = ropeSegments.Count - 1;
 
-        // Verlet integration
         for (int i = 1; i < ropeSegments.Count; i++)
         {
-            // Don't move hook anchor
             if (attachedHook != null && i == lastIndex)
                 continue;
 
@@ -300,7 +292,6 @@ public class RopeVerlet : MonoBehaviour
             ropeSegments[i] = segment;
         }
 
-        // Update player anchor
         RopeSegment first = ropeSegments[0];
 
         first.currPos = GetPlayerPosition();
@@ -308,7 +299,6 @@ public class RopeVerlet : MonoBehaviour
 
         ropeSegments[0] = first;
 
-        // Update hook anchor
         if (attachedHook != null)
         {
             RopeSegment last = ropeSegments[lastIndex];
@@ -319,7 +309,6 @@ public class RopeVerlet : MonoBehaviour
             ropeSegments[lastIndex] = last;
         }
 
-        // Apply constraints and collision detection
         for (int i = 0; i < constraintIterations; i++)
         {
             ApplyConstraint();
@@ -327,7 +316,6 @@ public class RopeVerlet : MonoBehaviour
         }
     }
 
-    // Keep rope segments a consistent distance apart
     private void ApplyConstraint()
     {
         if (ropeSegments.Count < 2)
@@ -358,13 +346,11 @@ public class RopeVerlet : MonoBehaviour
             if (firstIsAnchored)
             {
                 second.currPos -= correction;
-
                 ropeSegments[i + 1] = second;
             }
             else if (secondIsAnchored)
             {
                 first.currPos += correction;
-
                 ropeSegments[i] = first;
             }
             else
@@ -378,26 +364,23 @@ public class RopeVerlet : MonoBehaviour
         }
     }
 
-    // Draw the rope using the LineRenderer
     private void DrawRope()
-{
-    if (lr == null || ropeSegments.Count == 0)
-        return;
-
-    lr.positionCount = ropeSegments.Count;
-
-    for (int i = 0; i < ropeSegments.Count; i++)
     {
-        lr.SetPosition(i, ropeSegments[i].currPos);
-    }
+        if (lr == null || ropeSegments.Count == 0)
+            return;
+
+        lr.positionCount = ropeSegments.Count;
+
+        for (int i = 0; i < ropeSegments.Count; i++)
+        {
+            lr.SetPosition(i, ropeSegments[i].currPos);
+        }
     }
 
-    // Resolve collisions between rope segments and the environment
     private void ResolveCollisions()
     {
         for (int i = 1; i < ropeSegments.Count; i++)
         {
-            // Don't move hook anchor
             if (attachedHook != null && i == ropeSegments.Count - 1)
                 continue;
 
@@ -420,8 +403,6 @@ public class RopeVerlet : MonoBehaviour
 
                 if (direction.sqrMagnitude < 0.0001f)
                 {
-                    // The segment is inside the collider.
-                    // Find the nearest side of its bounds.
                     Bounds bounds = hit.bounds;
 
                     float left = Mathf.Abs(segment.currPos.x - bounds.min.x);
@@ -440,7 +421,6 @@ public class RopeVerlet : MonoBehaviour
                     else
                         direction = Vector2.up;
 
-                    // Move outside the collider bounds
                     if (direction == Vector2.left)
                         segment.currPos.x = bounds.min.x - collisionRadius - collisionSkin;
                     else if (direction == Vector2.right)
@@ -458,7 +438,6 @@ public class RopeVerlet : MonoBehaviour
                         direction * (collisionRadius + collisionSkin);
                 }
 
-                // Prevent velocity from pushing the segment back into the collider
                 Vector2 velocity = segment.currPos - segment.oldPos;
 
                 float velocityIntoSurface = Vector2.Dot(
@@ -478,7 +457,6 @@ public class RopeVerlet : MonoBehaviour
         }
     }
 
-    // Individual rope segment
     public struct RopeSegment
     {
         public Vector2 currPos;

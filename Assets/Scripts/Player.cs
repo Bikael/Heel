@@ -23,8 +23,10 @@ public class Player : MonoBehaviour
     public RopeVerlet rope;
 
     public bool isLeashOut = false;
+    private bool isReeling = false;
 
-    private GameObject activeHook;
+    private GameObject hookObj;
+    public Hook activeHook;
     private GameObject activeLeash;
 
     private void Start()
@@ -36,17 +38,16 @@ public class Player : MonoBehaviour
     {
         PlayerMovement();
         Throw();
+        ReelLeash();
     }
 
     private void FixedUpdate()
     {
-        // Horizontal movement
         rb.linearVelocity = new Vector2(
             horizontalInput * moveSpeed,
             rb.linearVelocity.y
         );
 
-        // Jump logic
         if (jumpPressed)
         {
             rb.linearVelocity = new Vector2(
@@ -104,7 +105,7 @@ public class Player : MonoBehaviour
         if (!Mouse.current.leftButton.wasPressedThisFrame)
             return;
 
-        // Retract existing hook and leash
+        // Manually retract existing hook
         if (isLeashOut)
         {
             RetractHook();
@@ -140,21 +141,32 @@ public class Player : MonoBehaviour
         ).normalized;
 
         // Instantiate hook
-        activeHook = Instantiate(
+        hookObj = Instantiate(
             hook,
             launchPoint.position,
             launchPoint.rotation
         );
 
+        activeHook = hookObj.GetComponent<Hook>();
+
+        if (activeHook == null)
+        {
+            Debug.LogError("Hook prefab is missing the Hook script!");
+            Destroy(hookObj);
+            hookObj = null;
+            return;
+        }
+
         // Get hook components
-        Rigidbody2D hookRb = activeHook.GetComponent<Rigidbody2D>();
-        Collider2D hookCollider = activeHook.GetComponent<Collider2D>();
+        Rigidbody2D hookRb = hookObj.GetComponent<Rigidbody2D>();
+        Collider2D hookCollider = hookObj.GetComponent<Collider2D>();
 
         if (hookRb == null || hookCollider == null)
         {
             Debug.LogError("Hook needs a Rigidbody2D and Collider2D!");
 
-            Destroy(activeHook);
+            Destroy(hookObj);
+            hookObj = null;
             activeHook = null;
             return;
         }
@@ -170,23 +182,24 @@ public class Player : MonoBehaviour
             );
         }
 
-        // Instantiate leash prefab
+        // Instantiate leash
         activeLeash = Instantiate(
             leash,
             launchPoint.position,
             Quaternion.identity
         );
 
-        // Get RopeVerlet component from leash
+        // Get RopeVerlet component
         rope = activeLeash.GetComponent<RopeVerlet>();
 
         if (rope == null)
         {
             Debug.LogError("Leash prefab is missing RopeVerlet!");
 
-            Destroy(activeHook);
+            Destroy(hookObj);
             Destroy(activeLeash);
 
+            hookObj = null;
             activeHook = null;
             activeLeash = null;
 
@@ -198,7 +211,7 @@ public class Player : MonoBehaviour
 
         // Attach rope between player and hook
         rope.AttachToHook(
-            activeHook.transform,
+            hookObj.transform,
             launchPoint
         );
 
@@ -210,13 +223,48 @@ public class Player : MonoBehaviour
         Debug.Log("Hook and leash instantiated!");
     }
 
-    private void RetractHook()
+    private void ReelLeash()
     {
-        // Destroy hook
-        if (activeHook != null)
+        if (activeHook != null &&
+            activeHook.touchedGround &&
+            !isReeling)
         {
-            Destroy(activeHook);
-            activeHook = null;
+            isReeling = true;
+
+            Debug.Log("Starting automatic reel-in!");
+
+            InvokeRepeating(nameof(RemoveRopeSegment), 0f, 0.05f);
+        }
+    }
+
+    private void RemoveRopeSegment()
+    {
+        if (rope == null)
+        {
+            FinishReeling();
+            return;
+        }
+
+        if (rope.HasMinimumSegments)
+        {
+            FinishReeling();
+            return;
+        }
+
+        rope.RemoveRopeSegment();
+
+        Debug.Log("Removed one rope segment!");
+    }
+
+    private void FinishReeling()
+    {
+        CancelInvoke(nameof(RemoveRopeSegment));
+
+        // Destroy hook
+        if (hookObj != null)
+        {
+            Destroy(hookObj);
+            hookObj = null;
         }
 
         // Destroy leash
@@ -226,9 +274,39 @@ public class Player : MonoBehaviour
             activeLeash = null;
         }
 
+        // Reset references
+        activeHook = null;
         rope = null;
 
         isLeashOut = false;
+        isReeling = false;
+
+        Debug.Log("Reeling complete! Ready to throw again.");
+    }
+
+    private void RetractHook()
+    {
+        CancelInvoke(nameof(RemoveRopeSegment));
+
+        // Destroy hook
+        if (hookObj != null)
+        {
+            Destroy(hookObj);
+            hookObj = null;
+        }
+
+        // Destroy leash
+        if (activeLeash != null)
+        {
+            Destroy(activeLeash);
+            activeLeash = null;
+        }
+
+        activeHook = null;
+        rope = null;
+
+        isLeashOut = false;
+        isReeling = false;
 
         Debug.Log("Hook and leash retracted!");
     }
